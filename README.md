@@ -100,3 +100,7 @@ Core modules:
 ## Deliberate constraints
 
 The first release has no plugins, incremental cache, content-directory discovery, feed generation, template inheritance, asset pipeline, or live server. These are candidates for later stages once their invariants and trust boundaries are explicit.
+
+## License
+
+LeanSite is released under the [MIT License](LICENSE).
