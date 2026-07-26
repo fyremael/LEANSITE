@@ -6,11 +6,27 @@ private def assertEqual [BEq α] [Repr α] (label : String) (actual expected : �
   unless actual == expected do
     throw <| IO.userError s!"{label}: expected {reprStr expected}, got {reprStr actual}"
 
+private def expectParsedRoute (label input expectedHref : String) : IO Unit := do
+  match Route.parse input with
+  | .ok route => assertEqual label (Route.href route) expectedHref
+  | .error error =>
+      throw <| IO.userError s!"{label}: expected a route, got {reprStr error}"
+
+private def expectRouteError (label input : String) : IO Unit := do
+  match Route.parse input with
+  | .ok route =>
+      throw <| IO.userError s!"{label}: expected an error, got {Route.href route}"
+  | .error _ => pure ()
+
 private def routeTests : IO Unit := do
-  assertEqual "root href" (Route.href "/") "/"
-  assertEqual "normalized href" (Route.href "//notes/hello//") "/notes/hello/"
-  assertEqual "unsafe parent" (Route.hasUnsafeSegment "/a/../b") true
-  assertEqual "safe route" (Route.hasUnsafeSegment "/a/b") false
+  let notes := Route.ofSegments ["notes", "hello"] (by decide)
+  assertEqual "root href" (Route.href Route.root) "/"
+  assertEqual "certified href" (Route.href notes) "/notes/hello/"
+  expectParsedRoute "normalized parse" "//notes/hello//" "/notes/hello/"
+  expectRouteError "parent segment rejected" "/a/../b"
+  expectRouteError "current segment rejected" "/a/./b"
+  expectRouteError "empty internal segment rejected" "/a//b"
+  expectRouteError "backslash rejected" "/a\\b"
   assertEqual "normalized base path" (BasePath.normalize "//LEANSITE//") "/LEANSITE"
   assertEqual "base path root" (BasePath.resolve "/LEANSITE" "/") "/LEANSITE/"
   assertEqual "base path route" (BasePath.resolve "/LEANSITE/" "/design/") "/LEANSITE/design/"
@@ -30,16 +46,23 @@ private def markdownTests : IO Unit := do
 
 private def validationTests : IO Unit := do
   assertEqual "example validates" (validate LeanSite.Example.site).isEmpty true
+  let xRoute := Route.ofSegments ["x"] (by decide)
   let duplicate : SiteConfig := {
     title := "broken"
     pages := [
-      { route := "/x", title := "X", markdown := "x" },
-      { route := "/x/", title := "Again", markdown := "x" }
+      { route := xRoute, title := "X", markdown := "x" },
+      { route := xRoute, title := "Again", markdown := "x" }
     ]
   }
   assertEqual "duplicate rejected" (validate duplicate).isEmpty false
   let unsafePath : SiteConfig := { title := "broken", basePath := "/../site" }
   assertEqual "unsafe base path rejected" (validate unsafePath).isEmpty false
+  let missingRoute := Route.ofSegments ["missing"] (by decide)
+  let missingNavigation : SiteConfig := {
+    title := "broken"
+    navigation := [{ label := "Missing", route := missingRoute }]
+  }
+  assertEqual "missing navigation rejected" (validate missingNavigation).isEmpty false
 
 def main : IO UInt32 := do
   routeTests
