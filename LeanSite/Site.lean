@@ -5,7 +5,7 @@ namespace LeanSite
 open Html
 
 structure Page where
-  route : String
+  route : Route
   title : String
   markdown : String
   description : String := ""
@@ -14,7 +14,7 @@ structure Page where
 
 structure NavItem where
   label : String
-  route : String
+  route : Route
   deriving Repr, Inhabited
 
 structure SiteConfig where
@@ -30,13 +30,12 @@ structure SiteConfig where
 
 inductive ValidationError where
   | duplicateRoute : String → ValidationError
-  | unsafeRoute : String → ValidationError
   | unsafeBasePath : String → ValidationError
   | missingNavigationTarget : String → ValidationError
   deriving Repr, Inhabited
 
-private def firstDuplicate? (values : List String) : Option String :=
-  let rec go (seen : List String) : List String → Option String
+private def firstDuplicate? [BEq α] (values : List α) : Option α :=
+  let rec go (seen : List α) : List α → Option α
     | [] => none
     | value :: rest =>
         if seen.contains value then some value else go (value :: seen) rest
@@ -44,9 +43,9 @@ private def firstDuplicate? (values : List String) : Option String :=
 
 def validate (site : SiteConfig) : List ValidationError :=
   let published := site.pages.filter fun page => !page.draft
-  let routes := published.map fun page => Route.normalize page.route
+  let routes := published.map fun page => page.route
   let basePathErrors :=
-    if Route.hasUnsafeSegment site.basePath then
+    if BasePath.hasUnsafeSegment site.basePath then
       [ValidationError.unsafeBasePath site.basePath]
     else
       []
@@ -54,21 +53,15 @@ def validate (site : SiteConfig) : List ValidationError :=
     match firstDuplicate? routes with
     | some route => [ValidationError.duplicateRoute (Route.href route)]
     | none => []
-  let unsafeRoutes := published.filterMap fun page =>
-    if Route.hasUnsafeSegment page.route then
-      some (ValidationError.unsafeRoute page.route)
-    else
-      none
   let missingNav := site.navigation.filterMap fun item =>
-    if routes.contains (Route.normalize item.route) then
+    if routes.contains item.route then
       none
     else
-      some (ValidationError.missingNavigationTarget item.route)
-  basePathErrors ++ duplicates ++ unsafeRoutes ++ missingNav
+      some (ValidationError.missingNavigationTarget (Route.href item.route))
+  basePathErrors ++ duplicates ++ missingNav
 
 private def validationMessage : ValidationError → String
   | .duplicateRoute route => s!"duplicate route: {route}"
-  | .unsafeRoute route => s!"unsafe route segment: {route}"
   | .unsafeBasePath path => s!"unsafe deployment base path: {path}"
   | .missingNavigationTarget route => s!"navigation target has no published page: {route}"
 
@@ -76,17 +69,16 @@ private def trimTrailingSlash (input : String) : String :=
   let reversed := input.toList.reverse.dropWhile fun c => c == '/'
   String.ofList reversed.reverse
 
-private def publicHref (site : SiteConfig) (route : String) : String :=
+private def publicHref (site : SiteConfig) (route : Route) : String :=
   BasePath.resolve site.basePath (Route.href route)
 
-private def absoluteUrl (site : SiteConfig) (route : String) : String :=
+private def absoluteUrl (site : SiteConfig) (route : Route) : String :=
   s!"{trimTrailingSlash site.baseUrl}{publicHref site route}"
 
-private def renderNavigation (site : SiteConfig) (activeRoute : String) : Html :=
-  let active := Route.normalize activeRoute
+private def renderNavigation (site : SiteConfig) (activeRoute : Route) : Html :=
   let links := site.navigation.map fun item =>
     let attrs :=
-      if Route.normalize item.route == active then
+      if item.route == activeRoute then
         [("href", publicHref site item.route), ("aria-current", "page")]
       else
         [("href", publicHref site item.route)]
@@ -106,7 +98,7 @@ private def pageDocument (site : SiteConfig) (page : Page) : String :=
     Html.nodeA "link" [("rel", "stylesheet"), ("href", BasePath.resolve site.basePath "/style.css")]
   ] ++ canonical
   let header := Html.node "header" [
-    Html.nodeA "a" [("class", "site-title"), ("href", publicHref site "/")] [Html.txt site.title],
+    Html.nodeA "a" [("class", "site-title"), ("href", publicHref site Route.root)] [Html.txt site.title],
     renderNavigation site page.route
   ]
   let article := Html.node "article" [
