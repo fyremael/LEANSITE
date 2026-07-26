@@ -35,11 +35,11 @@ private def firstPost : VibeSite.Page := {
   route := "/notes/first-post/"
   title := "First post"
   description := "An optional search description."
-  markdown := """
-# Markdown content
-
-The body lives here.
-"""
+  markdown := String.intercalate "\n" [
+    "# Markdown content",
+    "",
+    "The body lives here."
+  ]
 }
 ```
 
