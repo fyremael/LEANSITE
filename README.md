@@ -1,0 +1,88 @@
+# LEANSITE
+
+**VibeSite** is a small, dependency-free static site generator written in Lean 4. A site is declared as typed Lean data; the generator validates routes, parses a compact Markdown subset, renders escaped HTML, and emits portable static files.
+
+The project is intentionally narrow. Its purpose is to establish a legible typed publishing core before adding discovery, plugins, incremental builds, or richer templating.
+
+## Start here
+
+Requirements:
+
+- Lean 4.32.1 through `elan`
+- Lake, included with Lean
+
+Build, validate, generate, and test:
+
+```sh
+lake build
+lake exe vibesite check
+lake exe vibesite build
+lake exe vibesite_tests
+```
+
+The generated site appears in `_site/`. To select another output directory:
+
+```sh
+lake exe vibesite build dist
+```
+
+## Define a page
+
+Edit `VibeSite/Example.lean` or replace it with another imported site definition:
+
+```lean
+private def firstPost : VibeSite.Page := {
+  route := "/notes/first-post/"
+  title := "First post"
+  description := "An optional search description."
+  markdown := """
+# Markdown content
+
+The body lives here.
+"""
+}
+```
+
+Add the page to `SiteConfig.pages` and, when appropriate, add its route to `SiteConfig.navigation`.
+
+## Documentation
+
+- [Usage guide](docs/USAGE.md): installation, configuration, routes, drafts, Markdown, deployment, and troubleshooting.
+- [Design note](docs/DESIGN.md): goals, invariants, parser and rendering architecture, trust boundary, failure model, and extension plan.
+- [Development guide](docs/DEVELOPMENT.md): repository structure, checks, test expectations, and change discipline.
+
+## Current feature surface
+
+- typed `SiteConfig`, `Page`, and `NavItem` values;
+- route normalization and validation;
+- headings, paragraphs, lists, blockquotes, fenced code, rules, emphasis, strong text, inline code, and links;
+- escaped text and HTML attributes;
+- responsive generated CSS with automatic dark mode;
+- canonical links, `robots.txt`, and optional sitemap;
+- executable CLI validation and regression tests;
+- dependency-free generated output.
+
+This is intentionally not CommonMark. The parser is small enough to inspect as a complete unit.
+
+## Architecture
+
+```text
+SiteConfig
+  → route validation
+  → Markdown-lite parsing
+  → escaped Html tree
+  → deterministic static files
+```
+
+Core modules:
+
+- `VibeSite/Html.lean`: escaped HTML tree and renderer;
+- `VibeSite/Markdown.lean`: Markdown-lite parser;
+- `VibeSite/Site.lean`: page model, validation, layout, and file emission;
+- `VibeSite/Example.lean`: example site definition;
+- `Main.lean`: command-line interface;
+- `Tests.lean`: executable regression tests.
+
+## Deliberate constraints
+
+The first release has no plugins, incremental cache, content-directory discovery, feed generation, template inheritance, asset pipeline, base-path deployment mode, or live server. These are candidates for later stages once their invariants and trust boundaries are explicit.
