@@ -1,6 +1,8 @@
-# LEANSITE
+# LeanSite
 
-**VibeSite** is a small, dependency-free static site generator written in Lean 4. A site is declared as typed Lean data; the generator validates routes, parses a compact Markdown subset, renders escaped HTML, and emits portable static files.
+**LeanSite** is a small, dependency-free static site generator written in Lean 4. A site is declared as typed Lean data; the generator validates routes, parses a compact Markdown subset, renders escaped HTML, and emits portable static files.
+
+**Public demo:** https://fyremael.github.io/LEANSITE/
 
 The project is intentionally narrow. Its purpose is to establish a legible typed publishing core before adding discovery, plugins, incremental builds, or richer templating.
 
@@ -15,23 +17,23 @@ Build, validate, generate, and test:
 
 ```sh
 lake build
-lake exe vibesite check
-lake exe vibesite build
-lake exe vibesite_tests
+lake exe leansite check
+lake exe leansite build
+lake exe leansite_tests
 ```
 
 The generated site appears in `_site/`. To select another output directory:
 
 ```sh
-lake exe vibesite build dist
+lake exe leansite build dist
 ```
 
 ## Define a page
 
-Edit `VibeSite/Example.lean` or replace it with another imported site definition:
+Edit `LeanSite/Example.lean` or replace it with another imported site definition:
 
 ```lean
-private def firstPost : VibeSite.Page := {
+private def firstPost : LeanSite.Page := {
   route := "/notes/first-post/"
   title := "First post"
   description := "An optional search description."
@@ -45,6 +47,15 @@ private def firstPost : VibeSite.Page := {
 
 Add the page to `SiteConfig.pages` and, when appropriate, add its route to `SiteConfig.navigation`.
 
+For deployment below a domain root, set both the public origin and path prefix:
+
+```lean
+baseUrl := "https://fyremael.github.io"
+basePath := "/LEANSITE"
+```
+
+LeanSite applies the base path to navigation, stylesheets, canonical URLs, sitemap entries, and root-relative Markdown links.
+
 ## Documentation
 
 - [Usage guide](docs/USAGE.md): installation, configuration, routes, drafts, Markdown, deployment, and troubleshooting.
@@ -54,12 +65,13 @@ Add the page to `SiteConfig.pages` and, when appropriate, add its route to `Site
 ## Current feature surface
 
 - typed `SiteConfig`, `Page`, and `NavItem` values;
-- route normalization and validation;
+- route and deployment-base-path normalization and validation;
 - headings, paragraphs, lists, blockquotes, fenced code, rules, emphasis, strong text, inline code, and links;
 - escaped text and HTML attributes;
 - responsive generated CSS with automatic dark mode;
-- canonical links, `robots.txt`, and optional sitemap;
+- canonical links, `robots.txt`, `.nojekyll`, and optional sitemap;
 - executable CLI validation and regression tests;
+- GitHub Pages deployment from generated Lean output;
 - dependency-free generated output.
 
 This is intentionally not CommonMark. The parser is small enough to inspect as a complete unit.
@@ -68,21 +80,23 @@ This is intentionally not CommonMark. The parser is small enough to inspect as a
 
 ```text
 SiteConfig
-  → route validation
+  → route and base-path validation
   → Markdown-lite parsing
   → escaped Html tree
   → deterministic static files
+  → optional GitHub Pages deployment
 ```
 
 Core modules:
 
-- `VibeSite/Html.lean`: escaped HTML tree and renderer;
-- `VibeSite/Markdown.lean`: Markdown-lite parser;
-- `VibeSite/Site.lean`: page model, validation, layout, and file emission;
-- `VibeSite/Example.lean`: example site definition;
+- `LeanSite/Path.lean`: route and deployment base-path operations;
+- `LeanSite/Html.lean`: escaped HTML tree and renderer;
+- `LeanSite/Markdown.lean`: Markdown-lite parser and base-path-aware link rendering;
+- `LeanSite/Site.lean`: page model, validation, layout, and file emission;
+- `LeanSite/Example.lean`: example site definition;
 - `Main.lean`: command-line interface;
 - `Tests.lean`: executable regression tests.
 
 ## Deliberate constraints
 
-The first release has no plugins, incremental cache, content-directory discovery, feed generation, template inheritance, asset pipeline, base-path deployment mode, or live server. These are candidates for later stages once their invariants and trust boundaries are explicit.
+The first release has no plugins, incremental cache, content-directory discovery, feed generation, template inheritance, asset pipeline, or live server. These are candidates for later stages once their invariants and trust boundaries are explicit.
