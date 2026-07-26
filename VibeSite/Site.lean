@@ -129,41 +129,41 @@ private def pageDocument (site : SiteConfig) (page : Page) : String :=
   "<!doctype html>\n" ++ Html.render (Html.nodeA "html" [("lang", site.language)] [head, body]) ++ "\n"
 
 private def stylesheet : String :=
-  """
-:root {
-  color-scheme: light dark;
-  --bg: #f6f3ec;
-  --ink: #171713;
-  --muted: #66645d;
-  --line: #d8d3c8;
-  --accent: #315c4c;
-  --code: #ebe6dc;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg:#141512; --ink:#ecebe5; --muted:#aaa89e; --line:#383a34; --accent:#93c9b1; --code:#22241f; }
-}
-* { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--ink); line-height:1.65; }
-body > header, main, body > footer { width:min(74ch, calc(100% - 2rem)); margin-inline:auto; }
-body > header { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.2rem 0; border-bottom:1px solid var(--line); }
-.site-title { color:var(--ink); font-weight:750; text-decoration:none; letter-spacing:-0.02em; }
-nav { display:flex; flex-wrap:wrap; gap:.85rem; }
-nav a { color:var(--muted); text-decoration:none; }
-nav a[aria-current="page"], nav a:hover { color:var(--accent); }
-main { min-height:75vh; padding:4rem 0 6rem; }
-.page-header { margin-bottom:2rem; }
-h1, h2, h3 { line-height:1.15; letter-spacing:-0.035em; }
-h1 { font-size:clamp(2.4rem, 8vw, 5rem); margin:0; }
-h2 { margin-top:2.5rem; }
-a { color:var(--accent); text-underline-offset:.18em; }
-blockquote { margin:2rem 0; padding:.2rem 0 .2rem 1.2rem; border-left:3px solid var(--accent); color:var(--muted); }
-pre { overflow:auto; padding:1rem; border:1px solid var(--line); border-radius:.5rem; background:var(--code); }
-code { font-family:ui-monospace, SFMono-Regular, Consolas, monospace; font-size:.92em; }
-:not(pre) > code { padding:.12rem .3rem; border-radius:.25rem; background:var(--code); }
-hr { border:0; border-top:1px solid var(--line); margin:3rem 0; }
-body > footer { padding:1.5rem 0 3rem; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }
-"""
+  String.intercalate "\n" [
+    ":root {",
+    "  color-scheme: light dark;",
+    "  --bg: #f6f3ec;",
+    "  --ink: #171713;",
+    "  --muted: #66645d;",
+    "  --line: #d8d3c8;",
+    "  --accent: #315c4c;",
+    "  --code: #ebe6dc;",
+    "  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif;",
+    "}",
+    "@media (prefers-color-scheme: dark) {",
+    "  :root { --bg:#141512; --ink:#ecebe5; --muted:#aaa89e; --line:#383a34; --accent:#93c9b1; --code:#22241f; }",
+    "}",
+    "* { box-sizing: border-box; }",
+    "body { margin:0; background:var(--bg); color:var(--ink); line-height:1.65; }",
+    "body > header, main, body > footer { width:min(74ch, calc(100% - 2rem)); margin-inline:auto; }",
+    "body > header { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.2rem 0; border-bottom:1px solid var(--line); }",
+    ".site-title { color:var(--ink); font-weight:750; text-decoration:none; letter-spacing:-0.02em; }",
+    "nav { display:flex; flex-wrap:wrap; gap:.85rem; }",
+    "nav a { color:var(--muted); text-decoration:none; }",
+    "nav a[aria-current=\"page\"], nav a:hover { color:var(--accent); }",
+    "main { min-height:75vh; padding:4rem 0 6rem; }",
+    ".page-header { margin-bottom:2rem; }",
+    "h1, h2, h3 { line-height:1.15; letter-spacing:-0.035em; }",
+    "h1 { font-size:clamp(2.4rem, 8vw, 5rem); margin:0; }",
+    "h2 { margin-top:2.5rem; }",
+    "a { color:var(--accent); text-underline-offset:.18em; }",
+    "blockquote { margin:2rem 0; padding:.2rem 0 .2rem 1.2rem; border-left:3px solid var(--accent); color:var(--muted); }",
+    "pre { overflow:auto; padding:1rem; border:1px solid var(--line); border-radius:.5rem; background:var(--code); }",
+    "code { font-family:ui-monospace, SFMono-Regular, Consolas, monospace; font-size:.92em; }",
+    ":not(pre) > code { padding:.12rem .3rem; border-radius:.25rem; background:var(--code); }",
+    "hr { border:0; border-top:1px solid var(--line); margin:3rem 0; }",
+    "body > footer { padding:1.5rem 0 3rem; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }"
+  ] ++ "\n"
 
 private def sitemap (site : SiteConfig) : String :=
   let urls := (site.pages.filter fun page => !page.draft).map fun page =>
