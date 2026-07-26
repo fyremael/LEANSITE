@@ -1,6 +1,6 @@
 # Usage guide
 
-VibeSite is a small static site generator whose site configuration and content are ordinary Lean values. There is no external configuration language and no runtime server.
+LeanSite is a small static site generator whose configuration and content are ordinary Lean values. There is no external configuration language and no runtime server.
 
 ## 1. Install the toolchain
 
@@ -10,33 +10,33 @@ The repository pins its Lean version in `lean-toolchain`. Install `elan`, then l
 lake build
 ```
 
-A successful build creates the `vibesite` and `vibesite_tests` executables under Lake's build directory.
+A successful build creates the `leansite` and `leansite_tests` executables under Lake's build directory.
 
 ## 2. Validate and build the example site
 
 ```sh
-lake exe vibesite check
-lake exe vibesite build
+lake exe leansite check
+lake exe leansite build
 ```
 
-`check` validates the published route graph without writing output. `build` repeats validation and emits the site into `_site/`.
+`check` validates the published route graph and deployment base path without writing output. `build` repeats validation and emits the site into `_site/`.
 
 To use a different output directory:
 
 ```sh
-lake exe vibesite build dist
+lake exe leansite build dist
 ```
 
 Calling the executable without arguments is equivalent to `build`.
 
 ## 3. Define a site
 
-The example configuration lives in `VibeSite/Example.lean`. A complete configuration has this shape:
+The example configuration lives in `LeanSite/Example.lean`. A complete configuration has this shape:
 
 ```lean
-import VibeSite.Site
+import LeanSite.Site
 
-open VibeSite
+open LeanSite
 
 private def home : Page := {
   route := "/"
@@ -51,6 +51,7 @@ def site : SiteConfig := {
   title := "My site"
   tagline := "A short default description."
   baseUrl := "https://example.com"
+  basePath := ""
   language := "en-CA"
   outputDir := System.FilePath.mk "_site"
   pages := [home]
@@ -60,7 +61,34 @@ def site : SiteConfig := {
 }
 ```
 
-`Main.lean` imports the selected configuration and passes it to `VibeSite.build`. For a new site, replace `VibeSite.Example.site` with your own definition.
+`Main.lean` imports the selected configuration and passes it to `LeanSite.build`. For a new site, replace `LeanSite.Example.site` with your own definition.
+
+### Public origin and deployment path
+
+`baseUrl` is the public origin without a trailing slash. `basePath` is the optional path below that origin.
+
+A domain-root site uses:
+
+```lean
+baseUrl := "https://example.com"
+basePath := ""
+```
+
+A GitHub project Pages site uses:
+
+```lean
+baseUrl := "https://fyremael.github.io"
+basePath := "/LEANSITE"
+```
+
+LeanSite applies `basePath` to:
+
+- navigation and the site-title link;
+- the generated stylesheet URL;
+- root-relative Markdown links such as `[Design](/design/)`;
+- canonical URLs, sitemap entries, and the sitemap URL in `robots.txt`.
+
+External, protocol-relative, and relative Markdown URLs are not prefixed. `.` and `..` segments in `basePath` are rejected.
 
 ## 4. Add pages
 
@@ -88,8 +116,8 @@ Routes are normalized before comparison and output:
 - `"/"` maps to `_site/index.html`.
 - `"/notes"`, `"notes/"`, and `"//notes//"` all map to `_site/notes/index.html`.
 - `.` and `..` path segments are rejected.
-- Duplicate normalized routes are rejected.
-- A navigation target must name a published page.
+- duplicate normalized routes are rejected;
+- a navigation target must name a published page.
 
 These rules produce directory-style URLs with trailing slashes.
 
@@ -138,13 +166,15 @@ Current limitations include nested lists, images, tables, footnotes, raw HTML, r
 
 ## 6. Metadata and generated files
 
-When `baseUrl` is non-empty, every page receives a canonical URL and the build emits `sitemap.xml`. The generator always emits:
+When `baseUrl` is non-empty, every page receives a canonical URL and the build emits `sitemap.xml`. The generator emits:
 
 ```text
 _site/
+├── .nojekyll
 ├── index.html
 ├── style.css
 ├── robots.txt
+├── sitemap.xml       when baseUrl is set
 └── <route>/index.html
 ```
 
@@ -153,23 +183,31 @@ The page description defaults to `SiteConfig.tagline` when `Page.description` is
 ## 7. Test the generator
 
 ```sh
-lake exe vibesite_tests
+lake exe leansite_tests
 ```
 
-The executable test suite covers route normalization and safety, HTML escaping, Markdown rendering, and site validation.
+The executable suite covers route and base-path normalization, HTML escaping, Markdown rendering, root-relative link rewriting, and site validation.
 
 ## 8. Publish the output
 
-The output directory contains ordinary static files. It can be deployed to GitHub Pages, Netlify, Cloudflare Pages, an object store, or any conventional web server.
+The output directory contains ordinary static files. It can be deployed to GitHub Pages, Netlify, Cloudflare Pages, an object store, or a conventional web server.
 
-For hosts mounted below a path prefix, note that the current stylesheet and navigation URLs are root-relative. The first release therefore assumes deployment at a domain root. See `DESIGN.md` for the intended base-path extension.
+This repository's `.github/workflows/pages.yml` workflow builds the example with Lean and deploys `_site/` to GitHub Pages after successful pushes to `main`.
+
+Public demo:
+
+```text
+https://fyremael.github.io/LEANSITE/
+```
 
 ## Troubleshooting
 
-**`lake` selects the wrong Lean version.** Run `elan show` and confirm that the repository's `lean-toolchain` file is being respected.
+**`lake` selects the wrong Lean version.** Run `elan show` and confirm that `lean-toolchain` is being respected.
 
 **Validation reports a duplicate route.** Compare normalized forms; `/notes`, `notes/`, and `//notes//` denote the same output page.
 
 **A navigation target is missing.** Ensure the target appears in `pages` and is not marked as a draft.
+
+**Links work locally but fail on a project Pages site.** Set `basePath` to the repository path, such as `/LEANSITE`.
 
 **The build writes no sitemap.** Set `SiteConfig.baseUrl` to the public origin of the deployed site.
