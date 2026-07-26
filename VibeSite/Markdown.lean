@@ -14,8 +14,14 @@ inductive Block where
   | rule : Block
   deriving Repr, Inhabited
 
-private def startsWithChars (prefix input : List Char) : Bool :=
-  input.take prefix.length == prefix
+private def startsWithChars (needlePrefix input : List Char) : Bool :=
+  input.take needlePrefix.length == needlePrefix
+
+private def trimString (input : String) : String :=
+  input.trimAscii.toString
+
+private def dropTrim (input : String) (count : Nat) : String :=
+  (input.drop count).trimAscii.toString
 
 private partial def splitAtNeedle (needle input : List Char) : Option (List Char × List Char) :=
   let rec go (acc : List Char) : List Char → Option (List Char × List Char)
@@ -54,14 +60,14 @@ private partial def parseInlineChars : List Char → List Html
   | '`' :: rest =>
       match splitAtNeedle ['`'] rest with
       | some (inside, tail) =>
-          Html.node "code" [Html.txt (String.mk inside)] :: parseInlineChars tail
+          Html.node "code" [Html.txt (String.ofList inside)] :: parseInlineChars tail
       | none => Html.txt "`" :: parseInlineChars rest
   | '[' :: rest =>
       match splitAtNeedle [']'] rest with
       | some (label, '(' :: afterOpen) =>
           match splitAtNeedle [')'] afterOpen with
           | some (url, tail) =>
-              Html.nodeA "a" [("href", String.mk url)] (parseInlineChars label) :: parseInlineChars tail
+              Html.nodeA "a" [("href", String.ofList url)] (parseInlineChars label) :: parseInlineChars tail
           | none => Html.txt "[" :: parseInlineChars rest
       | _ => Html.txt "[" :: parseInlineChars rest
   | input =>
@@ -69,9 +75,9 @@ private partial def parseInlineChars : List Char → List Html
       if plain.isEmpty then
         match input with
         | [] => []
-        | c :: rest => Html.txt (String.mk [c]) :: parseInlineChars rest
+        | c :: rest => Html.txt (String.ofList [c]) :: parseInlineChars rest
       else
-        Html.txt (String.mk plain) :: parseInlineChars tail
+        Html.txt (String.ofList plain) :: parseInlineChars tail
 
 def parseInline (input : String) : List Html :=
   parseInlineChars input.toList
@@ -83,36 +89,36 @@ private def heading? (line : String) : Option (Nat × String) :=
   ]
   prefixes.findSome? fun entry =>
     if line.startsWith entry.2 then
-      some (entry.1, (line.drop entry.2.length).trim)
+      some (entry.1, dropTrim line entry.2.length)
     else
       none
 
 private def orderedItem? (line : String) : Option String :=
-  let trimmed := line.trim
+  let trimmed := trimString line
   let chars := trimmed.toList
   let digits := chars.takeWhile Char.isDigit
   match chars.drop digits.length with
   | '.' :: ' ' :: rest =>
-      if digits.isEmpty then none else some (String.mk rest).trim
+      if digits.isEmpty then none else some (trimString (String.ofList rest))
   | _ => none
 
 private def unorderedItem? (line : String) : Option String :=
-  let trimmed := line.trim
+  let trimmed := trimString line
   if trimmed.startsWith "- " || trimmed.startsWith "* " then
-    some (trimmed.drop 2).trim
+    some (dropTrim trimmed 2)
   else
     none
 
 private def isFence (line : String) : Bool :=
-  line.trim.startsWith "```"
+  (trimString line).startsWith "```"
 
 private def isRule (line : String) : Bool :=
-  let t := line.trim
+  let t := trimString line
   t == "---" || t == "***" || t == "___"
 
 private def startsBlock (line : String) : Bool :=
-  line.trim.isEmpty || (heading? line).isSome || (unorderedItem? line).isSome ||
-    (orderedItem? line).isSome || line.trim.startsWith "> " || isFence line || isRule line
+  (trimString line).isEmpty || (heading? line).isSome || (unorderedItem? line).isSome ||
+    (orderedItem? line).isSome || (trimString line).startsWith "> " || isFence line || isRule line
 
 private partial def collectUntilFence (lines : List String) (acc : List String := []) : List String × List String :=
   match lines with
@@ -140,9 +146,9 @@ private partial def collectOrdered (lines : List String) (acc : List String := [
 private partial def collectQuote (lines : List String) (acc : List String := []) : List String × List String :=
   match lines with
   | line :: rest =>
-      let trimmed := line.trim
+      let trimmed := trimString line
       if trimmed.startsWith "> " then
-        collectQuote rest ((trimmed.drop 2).trim :: acc)
+        collectQuote rest (dropTrim trimmed 2 :: acc)
       else
         (acc.reverse, lines)
   | [] => (acc.reverse, [])
@@ -154,16 +160,16 @@ private partial def collectParagraph (lines : List String) (acc : List String :=
       if startsBlock line then
         (acc.reverse, lines)
       else
-        collectParagraph rest (line.trim :: acc)
+        collectParagraph rest (trimString line :: acc)
 
 partial def parseBlocks : List String → List Block
   | [] => []
   | line :: rest =>
-      let trimmed := line.trim
+      let trimmed := trimString line
       if trimmed.isEmpty then
         parseBlocks rest
       else if isFence line then
-        let languageRaw := (trimmed.drop 3).trim
+        let languageRaw := dropTrim trimmed 3
         let language := if languageRaw.isEmpty then none else some languageRaw
         let (body, tail) := collectUntilFence rest
         .code language (String.intercalate "\n" body) :: parseBlocks tail

@@ -42,9 +42,9 @@ private def home : Page := {
   route := "/"
   title := "Home"
   description := "The home page."
-  markdown := """
-A site written as **typed Lean data**.
-"""
+  markdown := String.intercalate "\n" [
+    "A site written as **typed Lean data**."
+  ]
 }
 
 def site : SiteConfig := {
@@ -71,11 +71,11 @@ private def notes : Page := {
   route := "/notes/first-post/"
   title := "First post"
   description := "A first note."
-  markdown := """
-## A section
-
-The page body is Markdown-lite.
-"""
+  markdown := String.intercalate "\n" [
+    "## A section",
+    "",
+    "The page body is Markdown-lite."
+  ]
 }
 ```
 
