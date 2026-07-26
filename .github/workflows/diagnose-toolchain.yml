@@ -1,0 +1,19 @@
+name: diagnose-toolchain
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  toolchain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install elan
+        shell: bash
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+      - name: Install pinned Lean
+        shell: bash
+        run: |
+          "$HOME/.elan/bin/elan" toolchain install leanprover/lean4:v4.32.1
+          "$HOME/.elan/bin/lean" --version
