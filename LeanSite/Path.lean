@@ -85,8 +85,11 @@ def normalize (basePath : String) : String :=
 
 def hasUnsafeSegment (basePath : String) : Bool :=
   let path := String.ofList (stripSlashChars basePath.toList)
-  (path.splitOn "/").any fun segment =>
-    segment.isEmpty || segment == "." || segment == ".."
+  if path.isEmpty then
+    false
+  else
+    (path.splitOn "/").any fun segment =>
+      segment.isEmpty || segment == "." || segment == ".."
 
 /-- Prefix a root-relative URL with the deployment base path.
     External, protocol-relative, and relative URLs are unchanged. -/
