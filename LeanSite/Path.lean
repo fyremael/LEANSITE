@@ -73,7 +73,7 @@ def href (route : Route) : String :=
   if route.segments.isEmpty then "/" else s!"/{toPath route}/"
 
 def directory (output : System.FilePath) (route : Route) : System.FilePath :=
-  route.segments.foldl (fun path segment => path / segment) output
+  route.segments.foldl (fun path segment => path / System.FilePath.mk segment) output
 
 end Route
 
