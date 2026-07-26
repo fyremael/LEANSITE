@@ -10,9 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: leanprover/lean-action@v1
+      - name: Set up Lean
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
       - name: Build
-        run: lake build
+        shell: bash
+        run: |
+          set -o pipefail
+          lake build 2>&1 | tee build.log
+      - name: Preserve build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lean-build-log
+          path: build.log
       - name: Validate example site
         run: lake exe vibesite check
       - name: Run VibeSite regression tests
