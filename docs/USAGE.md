@@ -1,0 +1,175 @@
+# Usage guide
+
+VibeSite is a small static site generator whose site configuration and content are ordinary Lean values. There is no external configuration language and no runtime server.
+
+## 1. Install the toolchain
+
+The repository pins its Lean version in `lean-toolchain`. Install `elan`, then let Lake select the pinned toolchain automatically.
+
+```sh
+lake build
+```
+
+A successful build creates the `vibesite` and `vibesite_tests` executables under Lake's build directory.
+
+## 2. Validate and build the example site
+
+```sh
+lake exe vibesite check
+lake exe vibesite build
+```
+
+`check` validates the published route graph without writing output. `build` repeats validation and emits the site into `_site/`.
+
+To use a different output directory:
+
+```sh
+lake exe vibesite build dist
+```
+
+Calling the executable without arguments is equivalent to `build`.
+
+## 3. Define a site
+
+The example configuration lives in `VibeSite/Example.lean`. A complete configuration has this shape:
+
+```lean
+import VibeSite.Site
+
+open VibeSite
+
+private def home : Page := {
+  route := "/"
+  title := "Home"
+  description := "The home page."
+  markdown := """
+A site written as **typed Lean data**.
+"""
+}
+
+def site : SiteConfig := {
+  title := "My site"
+  tagline := "A short default description."
+  baseUrl := "https://example.com"
+  language := "en-CA"
+  outputDir := System.FilePath.mk "_site"
+  pages := [home]
+  navigation := [
+    { label := "Home", route := "/" }
+  ]
+}
+```
+
+`Main.lean` imports the selected configuration and passes it to `VibeSite.build`. For a new site, replace `VibeSite.Example.site` with your own definition.
+
+## 4. Add pages
+
+A page is a `Page` record:
+
+```lean
+private def notes : Page := {
+  route := "/notes/first-post/"
+  title := "First post"
+  description := "A first note."
+  markdown := """
+## A section
+
+The page body is Markdown-lite.
+"""
+}
+```
+
+Add the value to `SiteConfig.pages`. Add a corresponding `NavItem` only when the page should appear in the primary navigation.
+
+### Route semantics
+
+Routes are normalized before comparison and output:
+
+- `"/"` maps to `_site/index.html`.
+- `"/notes"`, `"notes/"`, and `"//notes//"` all map to `_site/notes/index.html`.
+- `.` and `..` path segments are rejected.
+- Duplicate normalized routes are rejected.
+- A navigation target must name a published page.
+
+These rules produce directory-style URLs with trailing slashes.
+
+### Draft pages
+
+Set `draft := true` to keep a page in source without publishing it:
+
+```lean
+private def unfinished : Page := {
+  route := "/unfinished/"
+  title := "Unfinished"
+  draft := true
+  markdown := "Not emitted."
+}
+```
+
+Draft routes are not valid navigation targets.
+
+## 5. Markdown-lite syntax
+
+The parser intentionally supports a compact subset rather than CommonMark:
+
+````markdown
+# Heading 1
+## Heading 2
+
+A paragraph with **strong text**, *emphasis*, `inline code`, and
+[a link](https://example.com).
+
+- unordered item
+- another item
+
+1. ordered item
+2. another item
+
+> A block quote.
+
+```lean
+#eval 2 + 2
+```
+
+---
+````
+
+Current limitations include nested lists, images, tables, footnotes, raw HTML, reference links, and full CommonMark delimiter rules.
+
+## 6. Metadata and generated files
+
+When `baseUrl` is non-empty, every page receives a canonical URL and the build emits `sitemap.xml`. The generator always emits:
+
+```text
+_site/
+├── index.html
+├── style.css
+├── robots.txt
+└── <route>/index.html
+```
+
+The page description defaults to `SiteConfig.tagline` when `Page.description` is empty.
+
+## 7. Test the generator
+
+```sh
+lake exe vibesite_tests
+```
+
+The executable test suite covers route normalization and safety, HTML escaping, Markdown rendering, and site validation.
+
+## 8. Publish the output
+
+The output directory contains ordinary static files. It can be deployed to GitHub Pages, Netlify, Cloudflare Pages, an object store, or any conventional web server.
+
+For hosts mounted below a path prefix, note that the current stylesheet and navigation URLs are root-relative. The first release therefore assumes deployment at a domain root. See `DESIGN.md` for the intended base-path extension.
+
+## Troubleshooting
+
+**`lake` selects the wrong Lean version.** Run `elan show` and confirm that the repository's `lean-toolchain` file is being respected.
+
+**Validation reports a duplicate route.** Compare normalized forms; `/notes`, `notes/`, and `//notes//` denote the same output page.
+
+**A navigation target is missing.** Ensure the target appears in `pages` and is not marked as a draft.
+
+**The build writes no sitemap.** Set `SiteConfig.baseUrl` to the public origin of the deployed site.
