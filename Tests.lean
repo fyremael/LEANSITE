@@ -27,6 +27,8 @@ private def routeTests : IO Unit := do
   expectRouteError "current segment rejected" "/a/./b"
   expectRouteError "empty internal segment rejected" "/a//b"
   expectRouteError "backslash rejected" "/a\\b"
+  assertEqual "empty base path safe" (BasePath.hasUnsafeSegment "") false
+  assertEqual "internal empty base segment rejected" (BasePath.hasUnsafeSegment "/a//b") true
   assertEqual "normalized base path" (BasePath.normalize "//LEANSITE//") "/LEANSITE"
   assertEqual "base path root" (BasePath.resolve "/LEANSITE" "/") "/LEANSITE/"
   assertEqual "base path route" (BasePath.resolve "/LEANSITE/" "/design/") "/LEANSITE/design/"
@@ -46,6 +48,11 @@ private def markdownTests : IO Unit := do
 
 private def validationTests : IO Unit := do
   assertEqual "example validates" (validate LeanSite.Example.site).isEmpty true
+  let domainRoot : SiteConfig := {
+    title := "root"
+    pages := [{ route := Route.root, title := "Home", markdown := "home" }]
+  }
+  assertEqual "domain-root site validates" (validate domainRoot).isEmpty true
   let xRoute := Route.ofSegments ["x"] (by decide)
   let duplicate : SiteConfig := {
     title := "broken"
