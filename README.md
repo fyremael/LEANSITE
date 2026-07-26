@@ -1,6 +1,6 @@
 # LeanSite
 
-**LeanSite** is a small, dependency-free static site generator written in Lean 4. A site is declared as typed Lean data; the generator validates routes, parses a compact Markdown subset, renders escaped HTML, and emits portable static files.
+**LeanSite** is a small, dependency-free static site generator written in Lean 4. A site is declared as typed Lean data; the generator constructs only safe logical routes, validates the published route graph, parses a compact Markdown subset, renders escaped HTML, and emits portable static files.
 
 **Public demo:** https://fyremael.github.io/LEANSITE/
 
@@ -33,8 +33,11 @@ lake exe leansite build dist
 Edit `LeanSite/Example.lean` or replace it with another imported site definition:
 
 ```lean
+private def firstPostRoute : LeanSite.Route :=
+  LeanSite.Route.ofSegments ["notes", "first-post"] (by decide)
+
 private def firstPost : LeanSite.Page := {
-  route := "/notes/first-post/"
+  route := firstPostRoute
   title := "First post"
   description := "An optional search description."
   markdown := String.intercalate "\n" [
@@ -45,7 +48,9 @@ private def firstPost : LeanSite.Page := {
 }
 ```
 
-Add the page to `SiteConfig.pages` and, when appropriate, add its route to `SiteConfig.navigation`.
+`Route.ofSegments` requires Lean to prove that every segment is non-empty, is not `.` or `..`, and contains no path separator. The `Route` constructor is private, so invalid routes cannot be inserted directly into `Page` or `NavItem` values. Use `Route.root` for `/`, and `Route.parse` when route text arrives dynamically.
+
+Add the page to `SiteConfig.pages` and, when appropriate, reuse its route in `SiteConfig.navigation`.
 
 For deployment below a domain root, set both the public origin and path prefix:
 
@@ -58,14 +63,16 @@ LeanSite applies the base path to navigation, stylesheets, canonical URLs, sitem
 
 ## Documentation
 
-- [Usage guide](docs/USAGE.md): installation, configuration, routes, drafts, Markdown, deployment, and troubleshooting.
-- [Design note](docs/DESIGN.md): goals, invariants, parser and rendering architecture, trust boundary, failure model, and extension plan.
+- [Usage guide](docs/USAGE.md): installation, route construction, configuration, drafts, Markdown, deployment, and troubleshooting.
+- [Design note](docs/DESIGN.md): invariants, private route construction, parser and rendering architecture, trust boundary, failure model, and extension plan.
 - [Development guide](docs/DEVELOPMENT.md): repository structure, checks, test expectations, and change discipline.
 
 ## Current feature surface
 
-- typed `SiteConfig`, `Page`, and `NavItem` values;
-- route and deployment-base-path normalization and validation;
+- typed `Route`, `SiteConfig`, `Page`, and `NavItem` values;
+- private route representation with proof-carrying static construction and checked dynamic parsing;
+- graph validation for duplicate routes and missing navigation targets;
+- deployment-base-path normalization and validation;
 - headings, paragraphs, lists, blockquotes, fenced code, rules, emphasis, strong text, inline code, and links;
 - escaped text and HTML attributes;
 - responsive generated CSS with automatic dark mode;
@@ -79,20 +86,22 @@ This is intentionally not CommonMark. The parser is small enough to inspect as a
 ## Architecture
 
 ```text
-SiteConfig
-  → route and base-path validation
-  → Markdown-lite parsing
-  → escaped Html tree
-  → deterministic static files
-  → optional GitHub Pages deployment
+safe segments ── proof or parser ──> Route
+                                      │
+SiteConfig ── graph/base-path validation
+                                      │
+                                      ├── Markdown-lite parsing
+                                      ├── escaped Html tree
+                                      ├── deterministic static files
+                                      └── optional GitHub Pages deployment
 ```
 
 Core modules:
 
-- `LeanSite/Path.lean`: route and deployment base-path operations;
+- `LeanSite/Path.lean`: private route representation, smart constructors, parsing, and deployment base-path operations;
 - `LeanSite/Html.lean`: escaped HTML tree and renderer;
 - `LeanSite/Markdown.lean`: Markdown-lite parser and base-path-aware link rendering;
-- `LeanSite/Site.lean`: page model, validation, layout, and file emission;
+- `LeanSite/Site.lean`: page model, graph validation, layout, and file emission;
 - `LeanSite/Example.lean`: example site definition;
 - `Main.lean`: command-line interface;
 - `Tests.lean`: executable regression tests.

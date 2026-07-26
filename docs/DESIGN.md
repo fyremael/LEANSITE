@@ -4,17 +4,18 @@
 
 LeanSite tests a narrow proposition: a useful static publishing pipeline can be represented as typed Lean data while remaining small enough to audit in one sitting.
 
-The project does not use theorem proving merely because Lean provides it. The initial value comes from a stricter ordinary-programming substrate: explicit data models, exhaustive pattern matching, a controlled rendering boundary, and one compiler-checked configuration language shared by content and generator.
+The project does not use theorem proving merely because Lean provides it. The initial value comes from a stricter ordinary-programming substrate: explicit data models, hidden constructors, exhaustive pattern matching, a controlled rendering boundary, and one compiler-checked configuration language shared by content and generator.
 
 ## Design goals
 
 1. **Small trusted core.** The generator should have few moving parts and no third-party Lean dependencies.
-2. **Safe default rendering.** User-visible text and attributes must be escaped at the final HTML boundary.
-3. **Deterministic output.** A site configuration should map to a predictable directory tree.
-4. **Fail before emission.** Invalid route graphs and deployment paths should be rejected before page files are written.
-5. **Inspectable content model.** The supported Markdown subset and its limitations should be obvious from the parser.
-6. **Static-host portability.** Generated output should require no application server or JavaScript runtime.
-7. **Subpath correctness.** A site mounted below a domain root must generate coherent internal links without post-processing.
+2. **Safe routes by construction.** A `Page` or `NavItem` must not contain an unsafe logical route.
+3. **Safe default rendering.** User-visible text and attributes must be escaped at the final HTML boundary.
+4. **Deterministic output.** A site configuration should map to a predictable directory tree.
+5. **Fail before emission.** Invalid route graphs and deployment paths should be rejected before page files are written.
+6. **Inspectable content model.** The supported Markdown subset and its limitations should be obvious from the parser.
+7. **Static-host portability.** Generated output should require no application server or JavaScript runtime.
+8. **Subpath correctness.** A site mounted below a domain root must generate coherent internal links without post-processing.
 
 ## Non-goals for the first release
 
@@ -33,66 +34,84 @@ These exclusions keep the first trust boundary narrow.
 ## Pipeline
 
 ```text
-SiteConfig
-   │
-   ├── validate route graph and base path
-   │
-   └── published Page values
-          │
-          ├── parse Markdown-lite blocks and inlines
-          │
-          ├── resolve root-relative URLs against basePath
-          │
-          ├── construct Html tree
-          │
-          ├── escape and serialize
-          │
-          └── write deterministic route directories
+literal segments ── proof ─────┐
+                               ├──> Route ──> Page / NavItem
+runtime text ─── checked parse ┘                  │
+                                                  ├── validate graph and base path
+                                                  └── published Page values
+                                                         │
+                                                         ├── parse Markdown-lite
+                                                         ├── resolve basePath
+                                                         ├── construct Html tree
+                                                         ├── escape and serialize
+                                                         └── write route directories
 ```
 
-`build` performs validation before creating page output. Once validation passes, each non-draft page is rendered independently.
+Route safety is established before a site configuration exists. `build` still validates relationships among already-safe values before creating output.
 
 ## Core data model
 
-`SiteConfig` owns site-wide metadata, public origin, deployment base path, output location, pages, and primary navigation. `Page` owns route, title, description, Markdown body, and draft state. `NavItem` deliberately contains only a label and route.
+`SiteConfig` owns site-wide metadata, public origin, deployment base path, output location, pages, and primary navigation. `Page` owns a typed route, title, description, Markdown body, and draft state. `NavItem` deliberately contains only a label and typed route.
 
 This is intentionally less flexible than a generic dictionary. The fields identify the publishing contract directly and provide compiler-visible extension points.
 
-## Route and base-path model
+## Route representation
 
-Page routes and deployment base paths are related but distinct.
+`Route` is a structure with a private constructor. Its stored representation is a list of path segments, but code outside `LeanSite.Path` cannot directly manufacture a value.
 
-A page route identifies a logical page and a filesystem directory. Its canonical public form is:
+The public construction surface is:
 
-```text
-/                  for the root page
-/<normalized>/     for every other page
+```lean
+Route.root
+Route.ofSegments ["notes", "first-post"] (by decide)
+Route.fromSegments dynamicSegments
+Route.parse dynamicText
 ```
 
-The corresponding filesystem path is `<output>/<normalized>/index.html`.
+`Route.ofSegments` is intended for statically known routes. It requires a proof that `segments.all Route.isSafeSegment = true`; concrete lists are normally discharged with `by decide` during elaboration.
 
-`basePath` identifies where that complete route tree is mounted publicly. For a GitHub project Pages site it is normally the repository name:
+`Route.fromSegments` and `Route.parse` are intended for dynamic input. They return `Except Route.Error Route`, so callers must handle malformed routes explicitly.
+
+A segment is accepted only when it:
+
+1. is non-empty;
+2. is not `.`;
+3. is not `..`;
+4. contains neither `/` nor `\`.
+
+Consequently, internal empty segments, traversal segments, and embedded path separators cannot inhabit `Route` through the public API. The root route is represented by an empty segment list and is available only as `Route.root` or the successful parse of an all-slash input.
+
+The canonical public form is:
+
+```text
+/                  for Route.root
+/<segments...>/    for every other route
+```
+
+The corresponding filesystem path is `<output>/<segments...>/index.html`. URL rendering and filesystem construction therefore consume the same validated segment list without reparsing strings.
+
+## Route graph validation
+
+Construction-time route safety does not eliminate graph-level obligations. `validate` still checks:
+
+1. published routes are unique;
+2. the deployment base path contains no empty, `.` or `..` segment;
+3. every navigation item resolves to a published route.
+
+The former `unsafeRoute` validation case has been removed because an unsafe page route cannot be represented.
+
+## Deployment base path
+
+A page route identifies a logical page and filesystem directory. `basePath` identifies where that complete route tree is mounted publicly. For a GitHub project Pages site:
 
 ```lean
 baseUrl := "https://fyremael.github.io"
 basePath := "/LEANSITE"
 ```
 
-The public root then becomes `/LEANSITE/`, while the generated filesystem root remains `_site/`. Keeping these concepts separate avoids embedding hosting details in route definitions.
+The public root becomes `/LEANSITE/`, while the generated filesystem root remains `_site/`. Keeping these concepts separate avoids embedding hosting details in `Route` values.
 
-`LeanSite.Path` provides two namespaces:
-
-- `Route`, for logical route normalization, public route forms, output directories, and unsafe-segment checks;
-- `BasePath`, for deployment-prefix normalization and root-relative URL resolution.
-
-Validation enforces:
-
-1. normalized published routes are unique;
-2. route segments do not equal `.` or `..`;
-3. the deployment base path contains no `.` or `..` segment;
-4. every navigation item resolves to a published route.
-
-A stronger future design would replace unrestricted route strings with smart constructors that make unsafe paths unrepresentable.
+`BasePath` remains string-based because it is deployment configuration rather than a page identity. It is normalized and validated before emission. A future refinement may give it its own private constructor if deployment configuration begins to flow through more APIs.
 
 ## Markdown representation
 
@@ -144,15 +163,15 @@ The stylesheet uses system fonts, a bounded reading width, automatic dark mode, 
 
 The example site sets its public origin and project path explicitly. The Pages workflow runs the actual Lean build, validates the site, executes the regression suite, generates `_site/`, uploads that directory as a Pages artifact, and deploys it through the `github-pages` environment.
 
-The generator emits `.nojekyll` so GitHub Pages serves the directory exactly as generated.
-
-This is an important design property: the public demo is not a separately maintained mock. It is output from the same executable and configuration documented for users.
+The generator emits `.nojekyll` so GitHub Pages serves the directory exactly as generated. The public demo is output from the same executable and configuration documented for users.
 
 ## Failure model
 
-`check` returns a non-zero process status when validation fails. `build` raises an `IO.userError` containing all collected validation messages before page emission.
+Static route declarations fail during elaboration when their safety proof cannot be discharged. Dynamic construction returns a precise `Route.Error` identifying the segment index and failure class.
 
-The duplicate detector currently reports the first duplicate normalized route. Unsafe routes, unsafe base paths, and missing navigation targets are collected through the validation path. A future diagnostic type should include source identifiers and report every duplicate group.
+`check` returns a non-zero process status when graph or base-path validation fails. `build` raises an `IO.userError` containing all collected validation messages before page emission.
+
+The duplicate detector currently reports the first duplicate route. Unsafe base paths and missing navigation targets are collected through the validation path. A future diagnostic type should include source identifiers and report every duplicate group.
 
 Filesystem errors propagate through `IO`; they are not converted into custom diagnostics.
 
@@ -166,9 +185,9 @@ The repository pins Lean through `lean-toolchain`; continuous integration builds
 
 The next defensible extensions are:
 
-1. **Validated route constructors** to make traversal and malformed segments unrepresentable.
+1. **A typed deployment base path** if deployment configuration needs the same construction guarantees as page routes.
 2. **Assets** with an explicit copy manifest and collision checks.
-3. **Filesystem content discovery** that parses typed front matter into `Page` values.
+3. **Filesystem content discovery** that parses typed front matter into `Page` values and checked routes.
 4. **Incremental builds** keyed by source and template hashes.
 5. **Feeds and structured metadata** generated from explicit publication dates and tags.
 6. **A retained Markdown AST** if transformations, table-of-contents generation, or source maps become necessary.
@@ -177,13 +196,14 @@ Each extension should preserve the central rule: widen the feature surface only 
 
 ## Security assumptions
 
-LeanSite assumes that the Lean source defining the site is trusted. Under that assumption, it protects text and attribute serialization from accidental HTML injection.
+LeanSite assumes that the Lean source defining the site is trusted. Under that assumption, it prevents page-route traversal through construction and protects text and attribute serialization from accidental HTML injection.
 
 It does not yet protect against:
 
 - malicious link schemes supplied in trusted configuration;
 - unsafe content passed explicitly through `Html.rawTrusted`;
-- symlink or hostile-filesystem behaviour outside the validated route model;
+- symlink or hostile-filesystem behaviour outside the route model;
+- platform-specific reserved filenames;
 - denial of service from extremely large source strings.
 
 These limits should be revisited before embedding the generator in a multi-author or network-facing service.
