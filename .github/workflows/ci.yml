@@ -9,7 +9,7 @@ jobs:
   lean:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Lean
         uses: leanprover/lean-action@v1
         with:
@@ -26,6 +26,6 @@ jobs:
           name: lean-build-log
           path: build.log
       - name: Validate example site
-        run: lake exe vibesite check
-      - name: Run VibeSite regression tests
-        run: lake exe vibesite_tests
+        run: lake exe leansite check
+      - name: Run LeanSite regression tests
+        run: lake exe leansite_tests
