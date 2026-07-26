@@ -1,35 +1,35 @@
-import VibeSite.Example
+import LeanSite.Example
 
-open VibeSite
+open LeanSite
 
 private def usage : String :=
   String.intercalate "\n" [
-    "VibeSite — a static site generator in Lean 4",
+    "LeanSite — a static site generator in Lean 4",
     "",
     "Usage:",
-    "  lake exe vibesite build [OUTPUT_DIRECTORY]",
-    "  lake exe vibesite check",
-    "  lake exe vibesite help"
+    "  lake exe leansite build [OUTPUT_DIRECTORY]",
+    "  lake exe leansite check",
+    "  lake exe leansite help"
   ]
 
 private def configuredSite (output? : Option String) : SiteConfig :=
   match output? with
-  | none => VibeSite.Example.site
-  | some output => { VibeSite.Example.site with outputDir := System.FilePath.mk output }
+  | none => LeanSite.Example.site
+  | some output => { LeanSite.Example.site with outputDir := System.FilePath.mk output }
 
 def main (args : List String) : IO UInt32 := do
   match args with
   | [] =>
-      VibeSite.build VibeSite.Example.site
+      LeanSite.build LeanSite.Example.site
       pure 0
   | ["build"] =>
-      VibeSite.build VibeSite.Example.site
+      LeanSite.build LeanSite.Example.site
       pure 0
   | ["build", output] =>
-      VibeSite.build (configuredSite (some output))
+      LeanSite.build (configuredSite (some output))
       pure 0
   | ["check"] =>
-      let errors := VibeSite.validate VibeSite.Example.site
+      let errors := LeanSite.validate LeanSite.Example.site
       if errors.isEmpty then
         IO.println "Site configuration is valid."
         pure 0

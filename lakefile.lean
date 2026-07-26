@@ -1,14 +1,14 @@
 import Lake
 open Lake DSL
 
-package «vibesite» where
+package «leansite» where
   version := v!"0.1.0"
 
-lean_lib VibeSite
+lean_lib LeanSite
 
 @[default_target]
-lean_exe vibesite where
+lean_exe leansite where
   root := `Main
 
-lean_exe vibesite_tests where
+lean_exe leansite_tests where
   root := `Tests

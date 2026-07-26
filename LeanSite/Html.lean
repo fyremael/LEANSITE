@@ -1,4 +1,4 @@
-namespace VibeSite
+namespace LeanSite
 
 /-- A deliberately small HTML tree. `raw` is reserved for trusted generator output. -/
 inductive Html where
@@ -61,4 +61,4 @@ def classed (tag className : String) (children : List Html := []) : Html :=
   nodeA tag [("class", className)] children
 
 end Html
-end VibeSite
+end LeanSite

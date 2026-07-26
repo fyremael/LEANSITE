@@ -1,8 +1,9 @@
-import VibeSite.Html
+import LeanSite.Html
+import LeanSite.Path
 
-namespace VibeSite.Markdown
+namespace LeanSite.Markdown
 
-open VibeSite Html
+open LeanSite Html
 
 inductive Block where
   | heading : Nat → String → Block
@@ -45,42 +46,46 @@ private def takePlain (input : List Char) : List Char × List Char :=
           go (c :: acc) tail
   go [] input
 
-private partial def parseInlineChars : List Char → List Html
+private partial def parseInlineChars (basePath : String) : List Char → List Html
   | [] => []
   | '*' :: '*' :: rest =>
       match splitAtNeedle ['*', '*'] rest with
       | some (inside, tail) =>
-          Html.node "strong" (parseInlineChars inside) :: parseInlineChars tail
-      | none => Html.txt "**" :: parseInlineChars rest
+          Html.node "strong" (parseInlineChars basePath inside) :: parseInlineChars basePath tail
+      | none => Html.txt "**" :: parseInlineChars basePath rest
   | '*' :: rest =>
       match splitAtNeedle ['*'] rest with
       | some (inside, tail) =>
-          Html.node "em" (parseInlineChars inside) :: parseInlineChars tail
-      | none => Html.txt "*" :: parseInlineChars rest
+          Html.node "em" (parseInlineChars basePath inside) :: parseInlineChars basePath tail
+      | none => Html.txt "*" :: parseInlineChars basePath rest
   | '`' :: rest =>
       match splitAtNeedle ['`'] rest with
       | some (inside, tail) =>
-          Html.node "code" [Html.txt (String.ofList inside)] :: parseInlineChars tail
-      | none => Html.txt "`" :: parseInlineChars rest
+          Html.node "code" [Html.txt (String.ofList inside)] :: parseInlineChars basePath tail
+      | none => Html.txt "`" :: parseInlineChars basePath rest
   | '[' :: rest =>
       match splitAtNeedle [']'] rest with
       | some (label, '(' :: afterOpen) =>
           match splitAtNeedle [')'] afterOpen with
           | some (url, tail) =>
-              Html.nodeA "a" [("href", String.ofList url)] (parseInlineChars label) :: parseInlineChars tail
-          | none => Html.txt "[" :: parseInlineChars rest
-      | _ => Html.txt "[" :: parseInlineChars rest
+              let href := BasePath.resolve basePath (String.ofList url)
+              Html.nodeA "a" [("href", href)] (parseInlineChars basePath label) :: parseInlineChars basePath tail
+          | none => Html.txt "[" :: parseInlineChars basePath rest
+      | _ => Html.txt "[" :: parseInlineChars basePath rest
   | input =>
       let (plain, tail) := takePlain input
       if plain.isEmpty then
         match input with
         | [] => []
-        | c :: rest => Html.txt (String.ofList [c]) :: parseInlineChars rest
+        | c :: rest => Html.txt (String.ofList [c]) :: parseInlineChars basePath rest
       else
-        Html.txt (String.ofList plain) :: parseInlineChars tail
+        Html.txt (String.ofList plain) :: parseInlineChars basePath tail
+
+def parseInlineWithBasePath (basePath input : String) : List Html :=
+  parseInlineChars basePath input.toList
 
 def parseInline (input : String) : List Html :=
-  parseInlineChars input.toList
+  parseInlineWithBasePath "" input
 
 private def heading? (line : String) : Option (Nat × String) :=
   let prefixes := [
@@ -200,19 +205,25 @@ private def languageClass : Option String → List (String × String)
   | none => []
   | some language => [("class", s!"language-{language}")]
 
-def renderBlock : Block → Html
-  | .heading level body => Html.node s!"h{level}" (parseInline body)
-  | .paragraph body => Html.node "p" (parseInline body)
+def renderBlockWithBasePath (basePath : String) : Block → Html
+  | .heading level body => Html.node s!"h{level}" (parseInlineWithBasePath basePath body)
+  | .paragraph body => Html.node "p" (parseInlineWithBasePath basePath body)
   | .unorderedList items =>
-      Html.node "ul" (items.map fun item => Html.node "li" (parseInline item))
+      Html.node "ul" (items.map fun item => Html.node "li" (parseInlineWithBasePath basePath item))
   | .orderedList items =>
-      Html.node "ol" (items.map fun item => Html.node "li" (parseInline item))
-  | .quote body => Html.node "blockquote" [Html.node "p" (parseInline body)]
+      Html.node "ol" (items.map fun item => Html.node "li" (parseInlineWithBasePath basePath item))
+  | .quote body => Html.node "blockquote" [Html.node "p" (parseInlineWithBasePath basePath body)]
   | .code language body =>
       Html.node "pre" [Html.nodeA "code" (languageClass language) [Html.txt body]]
   | .rule => Html.node "hr"
 
-def render (markdown : String) : Html :=
-  Html.fragment ((parseBlocks (markdown.splitOn "\n")).map renderBlock)
+def renderBlock (block : Block) : Html :=
+  renderBlockWithBasePath "" block
 
-end VibeSite.Markdown
+def renderWithBasePath (basePath markdown : String) : Html :=
+  Html.fragment ((parseBlocks (markdown.splitOn "\n")).map (renderBlockWithBasePath basePath))
+
+def render (markdown : String) : Html :=
+  renderWithBasePath "" markdown
+
+end LeanSite.Markdown
