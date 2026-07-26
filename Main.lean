@@ -3,13 +3,14 @@ import VibeSite.Example
 open VibeSite
 
 private def usage : String :=
-  """VibeSite — a static site generator in Lean 4
-
-Usage:
-  lake exe vibesite build [OUTPUT_DIRECTORY]
-  lake exe vibesite check
-  lake exe vibesite help
-"""
+  String.intercalate "\n" [
+    "VibeSite — a static site generator in Lean 4",
+    "",
+    "Usage:",
+    "  lake exe vibesite build [OUTPUT_DIRECTORY]",
+    "  lake exe vibesite check",
+    "  lake exe vibesite help"
+  ]
 
 private def configuredSite (output? : Option String) : SiteConfig :=
   match output? with
