@@ -40,7 +40,7 @@ private def stripSlashChars (chars : List Char) : List Char :=
   (left.reverse.dropWhile fun c => c == '/').reverse
 
 def normalize (route : String) : String :=
-  String.mk (stripSlashChars route.toList)
+  String.ofList (stripSlashChars route.toList)
 
 def href (route : String) : String :=
   let route := normalize route
@@ -69,7 +69,7 @@ def validate (site : SiteConfig) : List ValidationError :=
     match firstDuplicate? routes with
     | some route => [ValidationError.duplicateRoute (Route.href route)]
     | none => []
-  let unsafe := published.filterMap fun page =>
+  let unsafeRoutes := published.filterMap fun page =>
     if Route.hasUnsafeSegment page.route then
       some (ValidationError.unsafeRoute page.route)
     else
@@ -79,7 +79,7 @@ def validate (site : SiteConfig) : List ValidationError :=
       none
     else
       some (ValidationError.missingNavigationTarget item.route)
-  duplicates ++ unsafe ++ missingNav
+  duplicates ++ unsafeRoutes ++ missingNav
 
 private def validationMessage : ValidationError → String
   | .duplicateRoute route => s!"duplicate route: {route}"
@@ -88,7 +88,7 @@ private def validationMessage : ValidationError → String
 
 private def trimTrailingSlash (input : String) : String :=
   let reversed := input.toList.reverse.dropWhile fun c => c == '/'
-  String.mk reversed.reverse
+  String.ofList reversed.reverse
 
 private def absoluteUrl (site : SiteConfig) (route : String) : String :=
   s!"{trimTrailingSlash site.baseUrl}{Route.href route}"
@@ -129,7 +129,8 @@ private def pageDocument (site : SiteConfig) (page : Page) : String :=
   "<!doctype html>\n" ++ Html.render (Html.nodeA "html" [("lang", site.language)] [head, body]) ++ "\n"
 
 private def stylesheet : String :=
-  """:root {
+  """
+:root {
   color-scheme: light dark;
   --bg: #f6f3ec;
   --ink: #171713;
